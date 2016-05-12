@@ -29,14 +29,19 @@ void generateCalibration(const std::string& calibrationVideo, const std::string&
     std::vector<std::vector<cv::Point3f>> patternCorners;
     std::vector<std::vector<cv::Point2f>> imageCorners;
 
+    // HARDCODE: I'm assuming that the chess board stays roughly in the middle
+    cv::Rect roi (100, 100, size.width-200, size.height-200);
     cv::Mat frame, gray;
     while (stream.read(frame)) {
+        cv::Mat cropped (size, CV_8U, 255);
+        cv::cvtColor(frame(roi), gray, cv::COLOR_BGR2GRAY);
+        cv::threshold(gray, cropped(roi), 100, 255, cv::THRESH_BINARY);
+
         std::vector<cv::Point2f> corners;
-        bool patternFound = cv::findChessboardCorners(frame, patternSize, corners);
+        bool patternFound = cv::findChessboardCorners(cropped, patternSize, corners, 0);
 
         if (patternFound) {
-            cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-            cv::cornerSubPix(gray, corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+            cv::cornerSubPix(cropped, corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 
             patternCorners.push_back(patternCornersTemplate);
             imageCorners.push_back(corners);
