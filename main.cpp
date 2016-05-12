@@ -1,4 +1,8 @@
 #include <sys/stat.h>
+#include <glob.h>
+
+#include <iostream>
+#include <stdexcept>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -10,6 +14,18 @@ namespace filesystem {
     inline bool exists(const std::string &name) {
         struct stat buffer;
         return (stat(name.c_str(), &buffer) == 0);
+    }
+
+    inline std::vector<std::string> glob(const std::string& pat){
+        using namespace std;
+        glob_t glob_result;
+        glob(pat.c_str(),GLOB_TILDE,NULL,&glob_result);
+        std::vector<string> ret;
+        for(unsigned int i=0;i<glob_result.gl_pathc;++i){
+            ret.push_back(string(glob_result.gl_pathv[i]));
+        }
+        globfree(&glob_result);
+        return ret;
     }
 }
 
@@ -29,6 +45,7 @@ void generateCalibration(const std::string& calibrationVideo, const std::string&
     std::vector<std::vector<cv::Point3f>> patternCorners;
     std::vector<std::vector<cv::Point2f>> imageCorners;
 
+    std::cout << "Looking for calibration pattern" << std::endl;
     // HARDCODE: I'm assuming that the chess board stays roughly in the middle
     cv::Rect roi (100, 100, size.width-200, size.height-200);
     cv::Mat frame, gray;
@@ -48,21 +65,19 @@ void generateCalibration(const std::string& calibrationVideo, const std::string&
         }
     }
 
+    std::cout << "Calibrating" << std::endl;
     std::vector<cv::Mat> rvecs, tvecs;
     cv::Mat cameraMatrix = cv::Mat::eye(3, 3, CV_64F), distortionCoefficients = cv::Mat::zeros(8, 1, CV_64F);
     cv::calibrateCamera(patternCorners, imageCorners, size, cameraMatrix, distortionCoefficients, rvecs, tvecs);
 
+    std::cout << "Saving" << std::endl;
     cv::FileStorage calibration (calibrationFile, cv::FileStorage::WRITE | cv::FileStorage::FORMAT_YAML);
 
     calibration << "camera_matrix" << cameraMatrix;
     calibration << "distortion_coefficients" << distortionCoefficients;
+    calibration << "size" << size;
 }
 
-
-#include <stdexcept>
-
-
-#include <iostream>
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -80,23 +95,29 @@ int main(int argc, char *argv[]) {
 
     cv::FileStorage calibration (calibrationFile, cv::FileStorage::READ);
 
+    cv::Size size;
     cv::Mat cameraMatrix, distortionCoefficients;
     calibration["camera_matrix"] >> cameraMatrix;
     calibration["distortion_coefficients"] >> distortionCoefficients;
-
-    cv::VideoCapture stream(calibrationVideo);
-    cv::Size size(stream.get(cv::CAP_PROP_FRAME_WIDTH), stream.get(cv::CAP_PROP_FRAME_HEIGHT));
+    calibration["size"] >> size;
 
     cv::Mat map1, map2;
     cv::Mat optimalCameraMatrix = cv::getOptimalNewCameraMatrix(cameraMatrix, distortionCoefficients, size, 1);
     cv::initUndistortRectifyMap(cameraMatrix, distortionCoefficients, cv::Mat(), optimalCameraMatrix, size, CV_16SC2, map1, map2);
 
-    cv::Mat frame;
-    while (stream.read(frame)) {
-        cv::remap(frame, frame, map1, map2, cv::INTER_LINEAR);
+    for(const std::string& video: filesystem::glob(dataPath + "/*.mp4")) {
+        if (video != calibrationVideo) {
 
-        cv::imshow("debug", frame);
-        cv::waitKey(1);
+            cv::VideoCapture stream(video);
+
+            cv::Mat frame;
+            while (stream.read(frame)) {
+                cv::remap(frame, frame, map1, map2, cv::INTER_LINEAR);
+
+                cv::imshow("debug", frame);
+                cv::waitKey(1);
+            }
+        }
     }
 
     return 0;
