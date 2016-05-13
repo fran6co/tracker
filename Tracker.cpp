@@ -4,6 +4,7 @@
 
 #include "Tracker.h"
 
+#include <set>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
 
@@ -16,6 +17,7 @@ public:
             , id(lastId++)
             , accelerationNoise(accelerationNoise)
             , tracker(4, 2, 0)
+            , lastPrediction(rect)
     {
         cv::setIdentity(tracker.transitionMatrix);
 
@@ -69,9 +71,15 @@ public:
 
         tracker.processNoiseCov *= accelerationNoise;
 
-        cv::Mat prediction = tracker.predict();
+        cv::Mat _prediction = tracker.predict();
 
-        return cv::Rect(prediction.at<float>(0)-rect.width/2, prediction.at<float>(1)-rect.height/2, rect.width, rect.height);
+        lastPrediction = cv::Rect(_prediction.at<float>(0)-rect.width/2, _prediction.at<float>(1)-rect.height/2, rect.width, rect.height);
+
+        return lastPrediction;
+    }
+
+    bool wasUpdated(const std::chrono::nanoseconds& timestamp) const {
+        return history.back().first == timestamp;
     }
 
     cv::Rect rect;
@@ -83,6 +91,8 @@ public:
     cv::KalmanFilter tracker;
 
     std::vector<History> history;
+
+    cv::Rect lastPrediction;
 };
 
 uint64_t Blob::Impl::lastId = 0;
@@ -142,6 +152,8 @@ public:
         previousBlobs = currentBlobs;
         currentBlobs.clear();
 
+        // mergingBlobs contains all the blobs that got merged in a big one, this is a way to keep them alive
+        std::map<int, std::set<int>> mergingBlobs;
         cv::Mat distance (blobs.size(), previousBlobs.size(), CV_32S);
         for(int j=0;j<previousBlobs.size();j++){
             Blob::Ptr previousBlob = previousBlobs[j];
@@ -149,6 +161,10 @@ public:
             for(int i=0;i<blobs.size();i++){
                 const cv::Rect& blob = blobs[i];
                 distance.at<int32_t>(i, j) = squaredRectDistance(blob, prediction);
+
+                if (blob.contains(cv::Point2f(prediction.x+prediction.width/2, prediction.y+prediction.height/2))) {
+                    mergingBlobs[i].insert(j);
+                }
             }
         }
 
@@ -160,6 +176,38 @@ public:
             Blob::Ptr previousBlob = previousBlobs[match.second];
             previousBlob->impl->update(blobs[match.first], timestamp);
             currentBlobs.push_back(previousBlob);
+        }
+
+        // Find all the blobs that were merged and not matched
+        for (const auto& merged: mergingBlobs) {
+            if (merged.second.size() > 1) {
+                const cv::Rect& blob = blobs[merged.first];
+
+                for (int j: merged.second) {
+                    Blob::Ptr previousBlob = previousBlobs[j];
+
+                    if (!previousBlob->impl->wasUpdated(timestamp)) {
+                        cv::Rect intersection = previousBlob->impl->lastPrediction & blob;
+                        intersection.width = previousBlob->getBoundingRect().width;
+                        intersection.height = previousBlob->getBoundingRect().height;
+                        if (intersection.br().x > blob.br().x) {
+                            intersection.x -= intersection.br().x - blob.br().x;
+                        }
+                        if (intersection.tl().x < blob.tl().x) {
+                            intersection.x += blob.tl().x - intersection.tl().x;
+                        }
+                        if (intersection.br().y > blob.br().y) {
+                            intersection.y -= intersection.br().y - blob.br().y;
+                        }
+                        if (intersection.tl().y < blob.tl().y) {
+                            intersection.y += blob.tl().y - intersection.tl().y;
+                        }
+
+                        previousBlob->impl->update(intersection, timestamp);
+                        currentBlobs.push_back(previousBlob);
+                    }
+                }
+            }
         }
 
         for(int i=0;i<blobs.size();i++) {
