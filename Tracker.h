@@ -25,6 +25,8 @@ public:
 
     std::vector<History> getHistory() const;
     std::chrono::nanoseconds getTimeAlive() const;
+
+    cv::Rect getLastPrediction() const;
 };
 
 class Tracker {

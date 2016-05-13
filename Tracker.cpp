@@ -18,6 +18,7 @@ public:
             , accelerationNoise(accelerationNoise)
             , tracker(4, 2, 0)
             , lastPrediction(rect)
+            , lastTimestamp(timestamp)
     {
         cv::setIdentity(tracker.transitionMatrix);
 
@@ -52,7 +53,7 @@ public:
     }
 
     cv::Rect predict(const std::chrono::nanoseconds& timestamp) {
-        std::chrono::duration<double> _deltaTime = timestamp - history.back().first;
+        std::chrono::duration<double> _deltaTime = timestamp - lastTimestamp;
         double deltaTime = _deltaTime.count();
 
         tracker.transitionMatrix = (cv::Mat_<float>(4, 4) <<
@@ -75,6 +76,8 @@ public:
 
         lastPrediction = cv::Rect(_prediction.at<float>(0)-rect.width/2, _prediction.at<float>(1)-rect.height/2, rect.width, rect.height);
 
+        lastTimestamp = timestamp;
+
         return lastPrediction;
     }
 
@@ -93,6 +96,7 @@ public:
     std::vector<History> history;
 
     cv::Rect lastPrediction;
+    std::chrono::nanoseconds lastTimestamp;
 };
 
 uint64_t Blob::Impl::lastId = 0;
@@ -116,6 +120,10 @@ std::vector<Blob::History> Blob::getHistory() const {
 
 std::chrono::nanoseconds Blob::getTimeAlive() const {
     return impl->history.back().first-impl->history.front().first;
+}
+
+cv::Rect Blob::getLastPrediction() const {
+    return impl->lastPrediction;
 }
 
 // Take in account the size differences when matching
@@ -187,7 +195,7 @@ public:
                     Blob::Ptr previousBlob = previousBlobs[j];
 
                     if (!previousBlob->impl->wasUpdated(timestamp)) {
-                        cv::Rect intersection = previousBlob->impl->lastPrediction & blob;
+                        cv::Rect intersection = previousBlob->getLastPrediction() & blob;
                         intersection.width = previousBlob->getBoundingRect().width;
                         intersection.height = previousBlob->getBoundingRect().height;
                         if (intersection.br().x > blob.br().x) {

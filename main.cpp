@@ -145,6 +145,8 @@ int main(int argc, char *argv[]) {
 
                     cv::rectangle(out, blob->getBoundingRect(), color, blob->getTimeAlive() < minTimeAlive?1:5);
 
+                    cv::circle(out, cv::Point(blob->getLastPrediction().x+blob->getLastPrediction().width/2, blob->getLastPrediction().y+blob->getLastPrediction().height/2), 5, color);
+
                     std::vector<cv::Point> points;
                     for (const auto& history: blob->getHistory()) {
                         points.emplace_back(history.second.x + history.second.width / 2, history.second.y + history.second.height / 2);
