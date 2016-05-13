@@ -85,6 +85,10 @@ public:
         return history.back().first == timestamp;
     }
 
+    std::chrono::nanoseconds getLastSeen(const std::chrono::nanoseconds& timestamp) const {
+        return timestamp - history.back().first;
+    }
+
     cv::Rect rect;
     uint64_t id;
     double accelerationNoise;
@@ -139,9 +143,10 @@ int squaredRectDistance(const cv::Rect& a, const cv::Rect& b) {
 
 class Tracker::Impl {
 public:
-    Impl(double blobMinSize, double accelerationNoise)
+    Impl(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency)
             : blobMinSize(blobMinSize)
             , accelerationNoise(accelerationNoise)
+            , persistency(persistency)
     {
     }
 
@@ -224,16 +229,23 @@ public:
             }
         }
 
+        for(auto previousBlob: previousBlobs) {
+            if (!previousBlob->impl->wasUpdated(timestamp) && previousBlob->impl->getLastSeen(timestamp) < persistency) {
+                currentBlobs.push_back(previousBlob);
+            }
+        }
+
         return currentBlobs;
     }
 
     double blobMinSize;
     double accelerationNoise;
+    std::chrono::nanoseconds persistency;
     std::vector<Blob::Ptr> previousBlobs, currentBlobs;
 };
 
-Tracker::Tracker(double blobMinSize, double accelerationNoise)
-        : impl(new Impl(blobMinSize, accelerationNoise)) {
+Tracker::Tracker(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency)
+        : impl(new Impl(blobMinSize, accelerationNoise, persistency)) {
 
 }
 

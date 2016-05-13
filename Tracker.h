@@ -33,7 +33,7 @@ class Tracker {
     class Impl;
     std::shared_ptr<Impl> impl;
 public:
-    Tracker(double blobMinSize, double accelerationNoise);
+    Tracker(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency);
 
     std::vector<Blob::Ptr> track(const cv::Mat& foreground, const std::chrono::nanoseconds& timestamp);
 };
