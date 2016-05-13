@@ -108,6 +108,8 @@ int main(int argc, char *argv[]) {
     cv::Mat optimalCameraMatrix = cv::getOptimalNewCameraMatrix(cameraMatrix, distortionCoefficients, size, 1);
     cv::initUndistortRectifyMap(cameraMatrix, distortionCoefficients, cv::Mat(), optimalCameraMatrix, size, CV_16SC2, map1, map2);
 
+    // HARDCODE: Minimum time to consider a blob active
+    std::chrono::seconds minTimeAlive (5);
     for(const std::string& video: filesystem::glob(dataPath + "/*.mp4")) {
         if (video != calibrationVideo) {
             cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 200, true);
@@ -139,6 +141,9 @@ int main(int argc, char *argv[]) {
 
                 cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
                 for(Blob::Ptr blob: blobs) {
+                    if (blob->getTimeAlive() < minTimeAlive) {
+                        continue;
+                    }
                     cv::Scalar color ((5*blob->getId())%180, 255, 255);
 
                     cv::rectangle(out, blob->getBoundingRect(), color);

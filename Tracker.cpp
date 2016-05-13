@@ -104,6 +104,10 @@ std::vector<Blob::History> Blob::getHistory() const {
     return impl->history;
 }
 
+std::chrono::nanoseconds Blob::getTimeAlive() const {
+    return impl->history.back().first-impl->history.front().first;
+}
+
 // Take in account the size differences when matching
 int squaredRectDistance(const cv::Rect& a, const cv::Rect& b) {
     int dx = (a.x + a.width / 2) - (b.x + b.width / 2);

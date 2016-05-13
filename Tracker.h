@@ -24,6 +24,7 @@ public:
     uint64_t getId() const;
 
     std::vector<History> getHistory() const;
+    std::chrono::nanoseconds getTimeAlive() const;
 };
 
 class Tracker {
