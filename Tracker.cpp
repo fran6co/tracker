@@ -148,10 +148,11 @@ int squaredRectDistance(const cv::Rect& a, const cv::Rect& b) {
 
 class Tracker::Impl {
 public:
-    Impl(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency)
+    Impl(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency, const std::chrono::nanoseconds& maxContactTime)
             : blobMinSize(blobMinSize)
             , accelerationNoise(accelerationNoise)
             , persistency(persistency)
+            , maxContactTime(maxContactTime)
     {
     }
 
@@ -243,7 +244,7 @@ public:
 
         std::vector<Blob::Ptr> _currentBlobs;
         for(auto blob: currentBlobs) {
-            if (timestamp - blob->impl->lastSeenAlone < persistency*2) {
+            if (timestamp - blob->impl->lastSeenAlone < maxContactTime) {
                 _currentBlobs.push_back(blob);
             }
         }
@@ -254,12 +255,12 @@ public:
 
     double blobMinSize;
     double accelerationNoise;
-    std::chrono::nanoseconds persistency;
+    std::chrono::nanoseconds persistency, maxContactTime;
     std::vector<Blob::Ptr> previousBlobs, currentBlobs;
 };
 
-Tracker::Tracker(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency)
-        : impl(new Impl(blobMinSize, accelerationNoise, persistency)) {
+Tracker::Tracker(double blobMinSize, double accelerationNoise, const std::chrono::nanoseconds& persistency, const std::chrono::nanoseconds& maxContactTime)
+        : impl(new Impl(blobMinSize, accelerationNoise, persistency, maxContactTime)) {
 
 }
 

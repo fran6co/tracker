@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
             cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 350, true);
 
             // HARDCODE: Just to remove some noisy artifacts we set the min area to 1000
-            Tracker tracker (1000, 0.5, std::chrono::seconds(1));
+            Tracker tracker (1000, 0.5, std::chrono::seconds(1), std::chrono::seconds(5));
 
             cv::VideoCapture stream(video);
 
