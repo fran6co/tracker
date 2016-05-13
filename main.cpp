@@ -141,12 +141,9 @@ int main(int argc, char *argv[]) {
 
                 cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
                 for(Blob::Ptr blob: blobs) {
-                    if (blob->getTimeAlive() < minTimeAlive) {
-                        continue;
-                    }
                     cv::Scalar color ((5*blob->getId())%180, 255, 255);
 
-                    cv::rectangle(out, blob->getBoundingRect(), color);
+                    cv::rectangle(out, blob->getBoundingRect(), color, blob->getTimeAlive() < minTimeAlive?1:5);
 
                     std::vector<cv::Point> points;
                     for (const auto& history: blob->getHistory()) {
