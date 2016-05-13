@@ -19,6 +19,7 @@ public:
             , tracker(4, 2, 0)
             , lastPrediction(rect)
             , lastTimestamp(timestamp)
+            , lastSeenAlone(timestamp)
     {
         cv::setIdentity(tracker.transitionMatrix);
 
@@ -40,7 +41,7 @@ public:
         history.emplace_back(timestamp, rect);
     }
 
-    void update(const cv::Rect& track, const std::chrono::nanoseconds& timestamp) {
+    void update(const cv::Rect& track, const std::chrono::nanoseconds& timestamp, bool merged = false) {
         cv::Mat measurement(2,1,CV_32FC1);
         measurement.at<float>(0) = track.x + track.width/2;
         measurement.at<float>(1) = track.y + track.height/2;
@@ -50,6 +51,10 @@ public:
         rect = track;
 
         history.emplace_back(timestamp, cv::Rect(correct.at<float>(0)-rect.width/2, correct.at<float>(1)-rect.height/2, rect.width, rect.height));
+
+        if (!merged) {
+            lastSeenAlone = timestamp;
+        }
     }
 
     cv::Rect predict(const std::chrono::nanoseconds& timestamp) {
@@ -100,7 +105,7 @@ public:
     std::vector<History> history;
 
     cv::Rect lastPrediction;
-    std::chrono::nanoseconds lastTimestamp;
+    std::chrono::nanoseconds lastTimestamp, lastSeenAlone;
 };
 
 uint64_t Blob::Impl::lastId = 0;
@@ -217,7 +222,7 @@ public:
                             intersection.y += blob.tl().y - intersection.tl().y;
                         }
 
-                        previousBlob->impl->update(intersection, timestamp);
+                        previousBlob->impl->update(intersection, timestamp, true);
                         currentBlobs.push_back(previousBlob);
                     }
                 }
@@ -235,6 +240,14 @@ public:
                 currentBlobs.push_back(previousBlob);
             }
         }
+
+        std::vector<Blob::Ptr> _currentBlobs;
+        for(auto blob: currentBlobs) {
+            if (timestamp - blob->impl->lastSeenAlone < persistency*2) {
+                _currentBlobs.push_back(blob);
+            }
+        }
+        currentBlobs.swap(_currentBlobs);
 
         return currentBlobs;
     }
