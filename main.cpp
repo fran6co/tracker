@@ -106,6 +106,8 @@ int main(int argc, char *argv[]) {
     cv::Mat optimalCameraMatrix = cv::getOptimalNewCameraMatrix(cameraMatrix, distortionCoefficients, size, 1);
     cv::initUndistortRectifyMap(cameraMatrix, distortionCoefficients, cv::Mat(), optimalCameraMatrix, size, CV_16SC2, map1, map2);
 
+    // HARDCODE: Just to remove some noisy artifacts
+    const double blobMinSize = 1000;
     for(const std::string& video: filesystem::glob(dataPath + "/*.mp4")) {
         if (video != calibrationVideo) {
             cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 200, true);
@@ -114,7 +116,7 @@ int main(int argc, char *argv[]) {
 
             // Force learning the first frame as background
             double learningRate = 1;
-            cv::Mat frame, foreground;
+            cv::Mat frame, foreground, out;
             while (stream.read(frame)) {
                 cv::remap(frame, frame, map1, map2, cv::INTER_LINEAR);
 
@@ -124,7 +126,29 @@ int main(int argc, char *argv[]) {
                     learningRate = 0.0001;
                 }
 
-                cv::imshow("debug", foreground);
+                cv::threshold(foreground, foreground, 150, 255, cv::THRESH_BINARY);
+                cv::erode(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 2);
+                cv::blur(foreground, foreground, cv::Size(11, 11));
+                cv::dilate(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 10);
+
+                std::vector<std::vector<cv::Point>> contours;
+                cv::findContours(foreground, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+                std::vector<cv::Rect> blobs;
+                for(const auto& contour: contours) {
+                    double area = cv::contourArea(contour);
+                    if (area >= blobMinSize) {
+                        blobs.push_back(cv::boundingRect(contour));
+                    }
+                }
+
+                cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
+                for(int i=0;i<blobs.size();i++) {
+                    cv::rectangle(out, blobs[i], cv::Scalar((50*i)%180, 255, 255));
+                }
+                cv::cvtColor(out, frame, cv::COLOR_HSV2BGR);
+
+                cv::imshow("debug", frame);
                 cv::waitKey(1);
             }
         }
