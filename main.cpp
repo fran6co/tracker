@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
             cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 200, true);
 
             // HARDCODE: Just to remove some noisy artifacts we set the min area to 1000
-            Tracker tracker (1000);
+            Tracker tracker (1000, 0.5);
 
             cv::VideoCapture stream(video);
 
@@ -121,6 +121,7 @@ int main(int argc, char *argv[]) {
             double learningRate = 1;
             cv::Mat frame, foreground, out;
             while (stream.read(frame)) {
+                std::chrono::milliseconds timestamp (uint64_t(stream.get(cv::CAP_PROP_POS_MSEC)));
                 cv::remap(frame, frame, map1, map2, cv::INTER_LINEAR);
 
                 backgroundSegmentator->apply(frame, foreground, learningRate);
@@ -134,11 +135,11 @@ int main(int argc, char *argv[]) {
                 cv::blur(foreground, foreground, cv::Size(11, 11));
                 cv::dilate(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 10);
 
-                std::vector<Blob::Ptr> blobs = tracker.track(foreground);
+                std::vector<Blob::Ptr> blobs = tracker.track(foreground, timestamp);
 
                 cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
                 for(Blob::Ptr blob: blobs) {
-                    cv::rectangle(out, blob->getBoundingRect(), cv::Scalar((50*blob->getId())%180, 255, 255));
+                    cv::rectangle(out, blob->getBoundingRect(), cv::Scalar((5*blob->getId())%180, 255, 255));
                 }
                 cv::cvtColor(out, frame, cv::COLOR_HSV2BGR);
 

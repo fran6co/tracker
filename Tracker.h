@@ -10,12 +10,14 @@
 #include <opencv2/core.hpp>
 
 class Blob {
+    friend class Tracker;
+
     class Impl;
     std::shared_ptr<Impl> impl;
 public:
     typedef std::shared_ptr<Blob> Ptr;
 
-    Blob(const cv::Rect& rect);
+    Blob(const cv::Rect& rect, double accelerationNoise);
 
     const cv::Rect& getBoundingRect() const;
     uint64_t getId() const;
@@ -25,9 +27,9 @@ class Tracker {
     class Impl;
     std::shared_ptr<Impl> impl;
 public:
-    Tracker(double blobMinSize);
+    Tracker(double blobMinSize, double accelerationNoise);
 
-    std::vector<Blob::Ptr> track(const cv::Mat& foreground);
+    std::vector<Blob::Ptr> track(const cv::Mat& foreground, const std::chrono::nanoseconds& timestamp);
 };
 
 
