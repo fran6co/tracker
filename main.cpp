@@ -11,6 +11,8 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>
 
+#include "Tracker.h"
+
 namespace filesystem {
     inline bool exists(const std::string &name) {
         struct stat buffer;
@@ -106,11 +108,12 @@ int main(int argc, char *argv[]) {
     cv::Mat optimalCameraMatrix = cv::getOptimalNewCameraMatrix(cameraMatrix, distortionCoefficients, size, 1);
     cv::initUndistortRectifyMap(cameraMatrix, distortionCoefficients, cv::Mat(), optimalCameraMatrix, size, CV_16SC2, map1, map2);
 
-    // HARDCODE: Just to remove some noisy artifacts
-    const double blobMinSize = 1000;
     for(const std::string& video: filesystem::glob(dataPath + "/*.mp4")) {
         if (video != calibrationVideo) {
             cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 200, true);
+
+            // HARDCODE: Just to remove some noisy artifacts we set the min area to 1000
+            Tracker tracker (1000);
 
             cv::VideoCapture stream(video);
 
@@ -131,16 +134,7 @@ int main(int argc, char *argv[]) {
                 cv::blur(foreground, foreground, cv::Size(11, 11));
                 cv::dilate(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 10);
 
-                std::vector<std::vector<cv::Point>> contours;
-                cv::findContours(foreground, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-                std::vector<cv::Rect> blobs;
-                for(const auto& contour: contours) {
-                    double area = cv::contourArea(contour);
-                    if (area >= blobMinSize) {
-                        blobs.push_back(cv::boundingRect(contour));
-                    }
-                }
+                std::vector<cv::Rect> blobs = tracker.track(foreground);
 
                 cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
                 for(int i=0;i<blobs.size();i++) {

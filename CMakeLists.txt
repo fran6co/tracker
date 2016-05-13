@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
 
 find_package(OpenCV 3.0 REQUIRED COMPONENTS core video imgproc imgcodecs highgui videoio calib3d)
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cpp Tracker.cpp Tracker.h)
 
 
 include_directories(
