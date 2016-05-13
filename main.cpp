@@ -6,6 +6,7 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/video.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>
@@ -107,14 +108,23 @@ int main(int argc, char *argv[]) {
 
     for(const std::string& video: filesystem::glob(dataPath + "/*.mp4")) {
         if (video != calibrationVideo) {
+            cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 200, true);
 
             cv::VideoCapture stream(video);
 
-            cv::Mat frame;
+            // Force learning the first frame as background
+            double learningRate = 1;
+            cv::Mat frame, foreground;
             while (stream.read(frame)) {
                 cv::remap(frame, frame, map1, map2, cv::INTER_LINEAR);
 
-                cv::imshow("debug", frame);
+                backgroundSegmentator->apply(frame, foreground, learningRate);
+
+                if (learningRate == 1) {
+                    learningRate = 0.0001;
+                }
+
+                cv::imshow("debug", foreground);
                 cv::waitKey(1);
             }
         }
