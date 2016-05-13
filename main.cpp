@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     std::chrono::seconds minTimeAlive (5);
     for(const std::string& video: filesystem::glob(dataPath + "/*.mp4")) {
         if (video != calibrationVideo) {
-            cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 200, true);
+            cv::Ptr<cv::BackgroundSubtractor> backgroundSegmentator = cv::createBackgroundSubtractorMOG2(500, 350, true);
 
             // HARDCODE: Just to remove some noisy artifacts we set the min area to 1000
             Tracker tracker (1000, 0.5, std::chrono::seconds(1));
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
                 cv::threshold(foreground, foreground, 150, 255, cv::THRESH_BINARY);
                 cv::erode(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 2);
                 cv::blur(foreground, foreground, cv::Size(11, 11));
-                cv::dilate(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 10);
+                cv::dilate(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 11);
 
                 std::vector<Blob::Ptr> blobs = tracker.track(foreground, timestamp);
 

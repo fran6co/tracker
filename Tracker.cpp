@@ -175,7 +175,8 @@ public:
                 const cv::Rect& blob = blobs[i];
                 distance.at<int32_t>(i, j) = squaredRectDistance(blob, prediction);
 
-                if (blob.contains(cv::Point2f(prediction.x+prediction.width/2, prediction.y+prediction.height/2))) {
+                // At least 20% of the prediction area is contained
+                if ((blob & prediction).area() > prediction.area()*0.2) {
                     mergingBlobs[i].insert(j);
                 }
             }
