@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
                 }
                 cv::cvtColor(out, frame, cv::COLOR_HSV2BGR);
 
-                cv::imshow("debug", frame);
+                cv::imshow(video, frame);
                 cv::waitKey(1);
             }
         }
