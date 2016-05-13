@@ -9,13 +9,36 @@
 #include <vector>
 #include <opencv2/core.hpp>
 
+class Blob {
+public:
+    typedef std::shared_ptr<Blob> Ptr;
+
+    Blob(const cv::Rect& rect)
+        : rect(rect)
+        , id(lastId++)
+    {
+    }
+
+    const cv::Rect& getBoundingRect() const {
+        return rect;
+    }
+
+    uint64_t getId() const {
+        return id;
+    }
+
+    cv::Rect rect;
+    uint64_t id;
+    static uint64_t lastId;
+};
+
 class Tracker {
     class Impl;
     std::shared_ptr<Impl> impl;
 public:
     Tracker(double blobMinSize);
 
-    std::vector<cv::Rect> track(const cv::Mat& foreground);
+    std::vector<Blob::Ptr> track(const cv::Mat& foreground);
 };
 
 

@@ -6,6 +6,8 @@
 
 #include <opencv2/imgproc.hpp>
 
+uint64_t Blob::lastId = 0;
+
 class Tracker::Impl {
 public:
     Impl(double blobMinSize)
@@ -13,8 +15,8 @@ public:
 
     }
 
-    std::vector<cv::Rect> track(const cv::Mat& foreground) {
-        std::vector<cv::Rect> blobs;
+    std::vector<Blob::Ptr> track(const cv::Mat& foreground) {
+        std::vector<Blob::Ptr> blobs;
 
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(foreground, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
@@ -22,7 +24,7 @@ public:
         for(const auto& contour: contours) {
             double area = cv::contourArea(contour);
             if (area >= blobMinSize) {
-                blobs.push_back(cv::boundingRect(contour));
+                blobs.emplace_back(new Blob(cv::boundingRect(contour)));
             }
         }
 
@@ -37,6 +39,6 @@ Tracker::Tracker(double blobMinSize)
 
 }
 
-std::vector<cv::Rect> Tracker::track(const cv::Mat& foreground) {
+std::vector<Blob::Ptr> Tracker::track(const cv::Mat& foreground) {
     return impl->track(foreground);
 }

@@ -134,11 +134,11 @@ int main(int argc, char *argv[]) {
                 cv::blur(foreground, foreground, cv::Size(11, 11));
                 cv::dilate(foreground, foreground, cv::Mat(), cv::Point(-1, -1), 10);
 
-                std::vector<cv::Rect> blobs = tracker.track(foreground);
+                std::vector<Blob::Ptr> blobs = tracker.track(foreground);
 
                 cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
-                for(int i=0;i<blobs.size();i++) {
-                    cv::rectangle(out, blobs[i], cv::Scalar((50*i)%180, 255, 255));
+                for(Blob::Ptr blob: blobs) {
+                    cv::rectangle(out, blob->getBoundingRect(), cv::Scalar((50*blob->getId())%180, 255, 255));
                 }
                 cv::cvtColor(out, frame, cv::COLOR_HSV2BGR);
 
