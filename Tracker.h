@@ -10,26 +10,15 @@
 #include <opencv2/core.hpp>
 
 class Blob {
+    class Impl;
+    std::shared_ptr<Impl> impl;
 public:
     typedef std::shared_ptr<Blob> Ptr;
 
-    Blob(const cv::Rect& rect)
-        : rect(rect)
-        , id(lastId++)
-    {
-    }
+    Blob(const cv::Rect& rect);
 
-    const cv::Rect& getBoundingRect() const {
-        return rect;
-    }
-
-    uint64_t getId() const {
-        return id;
-    }
-
-    cv::Rect rect;
-    uint64_t id;
-    static uint64_t lastId;
+    const cv::Rect& getBoundingRect() const;
+    uint64_t getId() const;
 };
 
 class Tracker {

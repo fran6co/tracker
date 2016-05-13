@@ -6,7 +6,34 @@
 
 #include <opencv2/imgproc.hpp>
 
-uint64_t Blob::lastId = 0;
+class Blob::Impl {
+public:
+
+    Impl(const cv::Rect& rect)
+            : rect(rect)
+            , id(lastId++)
+    {
+    }
+
+    cv::Rect rect;
+    uint64_t id;
+    static uint64_t lastId;
+};
+
+uint64_t Blob::Impl::lastId = 0;
+
+Blob::Blob(const cv::Rect& rect)
+    : impl(new Impl(rect))
+{
+}
+
+const cv::Rect& Blob::getBoundingRect() const {
+    return impl->rect;
+}
+
+uint64_t Blob::getId() const {
+    return impl->id;
+}
 
 class Tracker::Impl {
 public:
