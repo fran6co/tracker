@@ -139,7 +139,17 @@ int main(int argc, char *argv[]) {
 
                 cv::cvtColor(frame, out, cv::COLOR_BGR2HSV);
                 for(Blob::Ptr blob: blobs) {
-                    cv::rectangle(out, blob->getBoundingRect(), cv::Scalar((5*blob->getId())%180, 255, 255));
+                    cv::Scalar color ((5*blob->getId())%180, 255, 255);
+
+                    cv::rectangle(out, blob->getBoundingRect(), color);
+
+                    std::vector<cv::Point> points;
+                    for (const auto& history: blob->getHistory()) {
+                        points.emplace_back(history.second.x + history.second.width / 2, history.second.y + history.second.height / 2);
+                    }
+                    const cv::Point *data = points.data();
+                    const int size = points.size();
+                    cv::polylines(out, &data, &size, 1, false, color);
                 }
                 cv::cvtColor(out, frame, cv::COLOR_HSV2BGR);
 

@@ -15,12 +15,15 @@ class Blob {
     class Impl;
     std::shared_ptr<Impl> impl;
 public:
+    typedef std::pair<std::chrono::nanoseconds, cv::Rect> History;
     typedef std::shared_ptr<Blob> Ptr;
 
-    Blob(const cv::Rect& rect, double accelerationNoise);
+    Blob(const cv::Rect& rect, const std::chrono::nanoseconds&, double accelerationNoise);
 
     const cv::Rect& getBoundingRect() const;
     uint64_t getId() const;
+
+    std::vector<History> getHistory() const;
 };
 
 class Tracker {

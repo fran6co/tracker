@@ -11,7 +11,7 @@
 
 class Blob::Impl {
 public:
-    Impl(const cv::Rect& rect, double accelerationNoise)
+    Impl(const cv::Rect& rect, const std::chrono::nanoseconds& timestamp, double accelerationNoise)
             : rect(rect)
             , id(lastId++)
             , accelerationNoise(accelerationNoise)
@@ -33,9 +33,11 @@ public:
         cv::setIdentity(tracker.measurementNoiseCov, cv::Scalar::all(0.1));
         cv::setIdentity(tracker.processNoiseCov);
         cv::setIdentity(tracker.errorCovPost, cv::Scalar::all(.1));
+
+        history.emplace_back(timestamp, rect);
     }
 
-    void update(const cv::Rect& track) {
+    void update(const cv::Rect& track, const std::chrono::nanoseconds& timestamp) {
         cv::Mat measurement(2,1,CV_32FC1);
         measurement.at<float>(0) = track.x + track.width/2;
         measurement.at<float>(1) = track.y + track.height/2;
@@ -43,9 +45,12 @@ public:
         cv::Mat correct = tracker.correct(measurement);
 
         rect = track;
+
+        history.emplace_back(timestamp, cv::Rect(correct.at<float>(0)-rect.width/2, correct.at<float>(1)-rect.height/2, rect.width, rect.height));
     }
 
-    cv::Rect predict(const std::chrono::duration<double>& _deltaTime) {
+    cv::Rect predict(const std::chrono::nanoseconds& timestamp) {
+        std::chrono::duration<double> _deltaTime = timestamp - history.back().first;
         double deltaTime = _deltaTime.count();
 
         tracker.transitionMatrix = (cv::Mat_<float>(4, 4) <<
@@ -64,31 +69,26 @@ public:
 
         tracker.processNoiseCov *= accelerationNoise;
 
-        cv::Mat _prediction = tracker.predict();
+        cv::Mat prediction = tracker.predict();
 
-        prediction = cv::Point2f (_prediction.at<float>(0), _prediction.at<float>(1));
-
-        cv::Rect predicted = rect;
-        predicted.x = prediction.x-predicted.width/2;
-        predicted.y = prediction.y-predicted.height/2;
-
-        return predicted;
+        return cv::Rect(prediction.at<float>(0)-rect.width/2, prediction.at<float>(1)-rect.height/2, rect.width, rect.height);
     }
 
     cv::Rect rect;
     uint64_t id;
     double accelerationNoise;
-    cv::Point2f prediction;
 
     static uint64_t lastId;
 
     cv::KalmanFilter tracker;
+
+    std::vector<History> history;
 };
 
 uint64_t Blob::Impl::lastId = 0;
 
-Blob::Blob(const cv::Rect& rect, double accelerationNoise)
-    : impl(new Impl(rect, accelerationNoise))
+Blob::Blob(const cv::Rect& rect, const std::chrono::nanoseconds& timestamp, double accelerationNoise)
+    : impl(new Impl(rect, timestamp, accelerationNoise))
 {
 }
 
@@ -98,6 +98,10 @@ const cv::Rect& Blob::getBoundingRect() const {
 
 uint64_t Blob::getId() const {
     return impl->id;
+}
+
+std::vector<Blob::History> Blob::getHistory() const {
+    return impl->history;
 }
 
 // Take in account the size differences when matching
@@ -116,7 +120,6 @@ public:
     Impl(double blobMinSize, double accelerationNoise)
             : blobMinSize(blobMinSize)
             , accelerationNoise(accelerationNoise)
-            , first(true)
     {
     }
 
@@ -135,16 +138,10 @@ public:
         previousBlobs = currentBlobs;
         currentBlobs.clear();
 
-        auto deltaTime = timestamp-previousTimestamp;
-        if (first) {
-            first = false;
-            deltaTime = std::chrono::milliseconds(uint64_t(accelerationNoise*1000));
-        }
-
         cv::Mat distance (blobs.size(), previousBlobs.size(), CV_32S);
         for(int j=0;j<previousBlobs.size();j++){
             Blob::Ptr previousBlob = previousBlobs[j];
-            cv::Rect prediction = previousBlob->impl->predict(deltaTime);
+            cv::Rect prediction = previousBlob->impl->predict(timestamp);
             for(int i=0;i<blobs.size();i++){
                 const cv::Rect& blob = blobs[i];
                 distance.at<int32_t>(i, j) = squaredRectDistance(blob, prediction);
@@ -157,27 +154,22 @@ public:
 
         for (auto match: matches) {
             Blob::Ptr previousBlob = previousBlobs[match.second];
-            previousBlob->impl->update(blobs[match.first]);
+            previousBlob->impl->update(blobs[match.first], timestamp);
             currentBlobs.push_back(previousBlob);
         }
 
         for(int i=0;i<blobs.size();i++) {
             if (matches.find(i) == matches.end()) {
-                currentBlobs.emplace_back(new Blob(blobs[i], accelerationNoise));
+                currentBlobs.emplace_back(new Blob(blobs[i], timestamp, accelerationNoise));
             }
         }
-
-        previousTimestamp = timestamp;
 
         return currentBlobs;
     }
 
     double blobMinSize;
     double accelerationNoise;
-    bool first;
     std::vector<Blob::Ptr> previousBlobs, currentBlobs;
-
-    std::chrono::nanoseconds previousTimestamp;
 };
 
 Tracker::Tracker(double blobMinSize, double accelerationNoise)
